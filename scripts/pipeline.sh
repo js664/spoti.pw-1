@@ -94,7 +94,11 @@ if ! xcrun -sdk iphoneos --find clang >/dev/null 2>&1; then
 fi
 # Theos builds its Swift support tools only at MAKELEVEL 0, and `make release` hands this script MAKELEVEL 1.
 # A build with FLEX carries the phone driver too (tweak/Makefile, SG_DRIVER); --no-flex leaves it out.
-env -u MAKELEVEL gmake -C "$ROOT/tweak" clean package SG_DRIVER="$WITH_FLEX" >/dev/null
+# Keep clean sequential: running it alongside package under -j can delete objects while they are
+# being built. Compile the tweak in parallel after the clean; CI runners otherwise compile all
+# source files one at a time, which makes a fresh IPA build unnecessarily slow.
+env -u MAKELEVEL gmake -C "$ROOT/tweak" clean
+env -u MAKELEVEL gmake -j"$(sysctl -n hw.ncpu)" -C "$ROOT/tweak" package SG_DRIVER="$WITH_FLEX" >/dev/null
 TWEAK_DEB="$(ls -t "$ROOT"/tweak/packages/*.deb | head -1)"
 echo "    $TWEAK_DEB"
 
